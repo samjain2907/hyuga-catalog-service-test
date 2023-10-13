@@ -1,28 +1,86 @@
-name: NodeJS with Webpack
+name: CI/CD
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+      - development
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker
+        run: |
+          echo '{"experimental":true}' | sudo tee /etc/docker/daemon.json
+          sudo service docker restart
+        if: matrix.docker == 'true'
+
+      - name: Login to Docker Registry
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        if: matrix.docker == 'true'
+
+      - name: Determine ENV_FILE_NAME
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/development" ]; then
+            export ENV_FILE_NAME="generate-env-dev.sh"
+          else
+            export ENV_FILE_NAME="generate-env-production.sh"
+          fi
+        shell: bash
+
+      - name: Generate Environment File
+        run: |
+          sh $ENV_FILE_NAME
+        shell: bash
+
+      - name: Display .env file
+        run: |
+          cat .env
+        shell: bash
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t ${{ github.repository }}:${{ github.sha }} .
+          docker tag ${{ github.repository }}:${{ github.sha }} ghcr.io/${{ github.repository }}:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
+        if: matrix.docker == 'true'
 
     strategy:
       matrix:
-        node-version: [14.x, 16.x, 18.x]
+        docker: [true]
 
-    steps:
-    - uses: actions/checkout@v3
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_PROJECT_ID_PRODUCTION: ${{ secrets.GCP_PROJECT_ID_PRODUCTION }}
 
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
+    jobs:
+      include:
+        - name: Build and Push to Staging
+          if: matrix.docker == 'true' && github.ref == 'refs/heads/development'
+          env:
+            ENV_FILE_NAME: "generate-env-dev.sh"
+          steps:
+            - name: Set up Google Cloud SDK
+              uses: google-github-actions/setup-gcloud@v0
+              with:
+                version: '372.0.0'
+                service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+                project_id: ${{ env.GCP_PROJECT_ID }}
 
-    - name: Build
-      run: |
-        npm install
-        npx webpack
+        - name: Build and Push to Production
+          if: matrix.docker == 'true' && github.ref == 'refs/heads/main'
+          env:
+            ENV_FILE_NAME: "generate-env-production.sh"
+          steps:
+            - name: Set up Google Cloud SDK
+              uses: google-github-actions/setup-gcloud@v0
+              with:
+                version: '372.0.0'
+                service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+                project_id: ${{ env.GCP_PROJECT_ID_PRODUCTION }}
