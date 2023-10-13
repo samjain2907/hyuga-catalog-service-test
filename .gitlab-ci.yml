@@ -1,0 +1,82 @@
+services:
+- name: docker:dind
+  command: ["--mtu=1440"]
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  FF_NETWORK_PER_BUILD: 1       ## <<<<<<<<< FF PATCH
+  ENV_FILE_NAME: generate-env-production.sh
+  DOCKER_DRIVER: overlay2
+  DOCKER_HOST: tcp://docker:2375
+  ROLLOUT_RESOURCE_TYPE: deployment
+  DOCKER_TLS_CERTDIR: "" 
+  
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_REF_NAME == 'development'
+      variables:
+        ENV_FILE_NAME: "generate-env-dev.sh" 
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+      variables:
+        ENV_FILE_NAME: "generate-env-dev.sh"
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+      variables:
+        ENV_FILE_NAME: "generate-env-production.sh"
+
+# Speed up builds
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  - sh $ENV_FILE_NAME
+  - cat .env
+
+stages:
+  - release
+
+push-ecr-staging:
+  image: 
+    name: amazon/aws-cli
+    entrypoint: [""]
+  stage: release
+  services:
+    - docker:dind
+  before_script:
+    - amazon-linux-extras install docker
+    - aws --version
+    - docker --version
+    - sh $ENV_FILE_NAME
+    - cat .env
+  script:
+    - docker build -t "$AWS_ECR_REPOSITORY:$CI_COMMIT_BRANCH-$CI_COMMIT_SHORT_SHA" .
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ECR_REPOSITORY
+    - docker push "$AWS_ECR_REPOSITORY:$CI_COMMIT_BRANCH-$CI_COMMIT_SHORT_SHA"
+  only:
+    - staging
+
+push-ecr-production:
+  image: 
+    name: amazon/aws-cli
+    entrypoint: [""]
+  stage: release
+  services:
+    - docker:dind
+  before_script:
+    - amazon-linux-extras install docker
+    - aws --version
+    - docker --version
+    - sh $ENV_FILE_NAME
+    - cat .env
+    - AWS_ECR_REPOSITORY=$AWS_ECR_REPOSITORY_PRODUCTION
+    - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID_PRODUCTION
+    - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY_PRODUCTION
+  script:
+    - docker build -t "$AWS_ECR_REPOSITORY:$CI_COMMIT_BRANCH-$CI_COMMIT_SHORT_SHA" .
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ECR_REPOSITORY
+    - docker push "$AWS_ECR_REPOSITORY:$CI_COMMIT_BRANCH-$CI_COMMIT_SHORT_SHA"
+  only:
+    - main
