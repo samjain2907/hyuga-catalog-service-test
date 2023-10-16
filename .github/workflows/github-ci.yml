@@ -42,10 +42,6 @@ jobs:
       - name: Generate environment file
         run: sh ${{ steps.set_env_file_name.outputs.ENV_FILE_NAME }}
 
-     # Log the environment variables.
-      - name: Log environment variables
-        run: cat .env
-
       # Log in to the Docker registry.
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v1'
