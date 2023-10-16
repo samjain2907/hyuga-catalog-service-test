@@ -8,12 +8,16 @@ env:
    GIT_SUBMODULE_STRATEGY: recursive
    FF_NETWORK_PER_BUILD: 1
    DOCKER_DRIVER: overlay2
-   DOCKER_HOST: tcp://docker:2375
+   DOCKER_HOST: tcp://127.0.0.1:2375
    ROLLOUT_RESOURCE_TYPE: deployment
    DOCKER_TLS_CERTDIR: ""
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    services:
+      docker:
+        image: docker:dind
     steps:
       # Set the ENV_FILE_NAME variable based on the branch name.
       - name: Set ENV_FILE_NAME
@@ -37,6 +41,10 @@ jobs:
        # Generate the environment file.
       - name: Generate environment file
         run: sh ${{ steps.set_env_file_name.outputs.ENV_FILE_NAME }}
+
+     # Log the environment variables.
+      - name: Log environment variables
+        run: cat .env
 
       # Log in to the Docker registry.
       - name: 'Set up Cloud SDK'
