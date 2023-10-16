@@ -14,10 +14,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    services:
-      docker:
-        image: docker:dind
     steps:
       # Set the ENV_FILE_NAME variable based on the branch name.
       - name: Set ENV_FILE_NAME
