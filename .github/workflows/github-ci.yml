@@ -41,7 +41,7 @@ jobs:
        # Generate the environment file.
       - name: Generate environment file
         run: sh ${{ steps.set_env_file_name.outputs.ENV_FILE_NAME }}
-        
+    
       # Log in to the Docker registry.
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v1'
@@ -49,14 +49,12 @@ jobs:
           project_id: ${{ secrets.GOOGLE_PROJECT }}
           service_account_keys: ${{ secrets.GOOGLE_SERVICE_ACCOUNT}}
           export_default_credentials: true
-          
-      - name: Debug Docker
-        run: docker info
+
       - name: Build and Push Docker image
         env:
           GOOGLE_PROJECT: ${{ secrets.GOOGLE_PROJECT}}
         run: |
           gcloud auth configure-docker --quiet
           gcloud auth configure-docker asia-south1-docker.pkg.dev
-          docker build -t asia-south1-docker.pkg.dev/$GOOGLE_PROJECT/hyuga-catalog-service-test .
-          docker push asia-south1-docker.pkg.dev/$GOOGLE_PROJECT/hyuga-catalog-service-test
+          docker build -t asia-south1-docker.pkg.dev/$GOOGLE_PROJECT/hyuga-catalog-service-test/myimage:latest .
+          docker push asia-south1-docker.pkg.dev/$GOOGLE_PROJECT/hyuga-catalog-service-test/myimage:latest
