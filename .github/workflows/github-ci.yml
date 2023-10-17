@@ -52,12 +52,17 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v1
         
-
+      - name: Debug Build Context
+        run: ls -la
+      - name: Debug Dockerfile
+        run: |
+          cat Dockerfile
+          cat ./Dockerfile
       - name: Build and Push Docker image
         env:
           GOOGLE_PROJECT: ${{ secrets.GOOGLE_PROJECT}}
         run: |
           gcloud auth configure-docker --quiet
           gcloud auth configure-docker asia-south1-docker.pkg.dev
-          docker build -t asia-south1-docker.pkg.dev/$GOOGLE_PROJECT/hyuga-catalog-service-test/myimage:latest ..
+          docker build -t asia-south1-docker.pkg.dev/$GOOGLE_PROJECT/hyuga-catalog-service-test/myimage:latest .
           docker push asia-south1-docker.pkg.dev/$GOOGLE_PROJECT/hyuga-catalog-service-test/myimage:latest
