@@ -7,7 +7,6 @@ on:
 env:
    GIT_SUBMODULE_STRATEGY: recursive
    FF_NETWORK_PER_BUILD: 1
-   DOCKER_DRIVER: overlay2
    ROLLOUT_RESOURCE_TYPE: deployment
    DOCKER_TLS_CERTDIR: ""
 jobs:
@@ -51,14 +50,7 @@ jobs:
       
       - name: Set up Docker
         uses: docker/setup-buildx-action@v1
-        
-      - name: Debug Build Context
-        run: ls -la
-      - name: Debug Dockerfile
-        run: |
-          cd ../..
-          cat Dockerfile
-          cat ./Dockerfile
+
       - name: Build and Push Docker image
         env:
           GOOGLE_PROJECT: ${{ secrets.GOOGLE_PROJECT}}
